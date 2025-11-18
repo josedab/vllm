@@ -1,0 +1,69 @@
+%% vLLM Architecture Overview
+%% Commit: 67745d189fd981ee824bde35666a3737a962c031
+
+graph TB
+    subgraph "API Layer"
+        CLI[CLI: vllm serve]
+        SDK[Python SDK: LLM class]
+        HTTP[HTTP API: FastAPI]
+    end
+
+    subgraph "Engine Layer"
+        AsyncLLM[AsyncLLM<br/>Async Interface]
+        Processor[Processor<br/>Input/Output Processing]
+        Client[EngineClient<br/>Communication]
+    end
+
+    subgraph "Core Engine"
+        Core[EngineCore<br/>Main Loop]
+        Scheduler[Scheduler<br/>Request Scheduling]
+        KVManager[KVCacheManager<br/>Block Management]
+    end
+
+    subgraph "Execution Layer"
+        Executor[Executor<br/>Worker Management]
+        Worker1[Worker 0<br/>GPU 0]
+        Worker2[Worker 1<br/>GPU 1]
+        WorkerN[Worker N<br/>GPU N]
+    end
+
+    subgraph "Model Execution"
+        Runner[ModelRunner<br/>Forward Pass]
+        Attention[Attention<br/>PagedAttention]
+        Model[Model<br/>Transformer Layers]
+    end
+
+    %% Connections
+    CLI --> HTTP
+    SDK --> AsyncLLM
+    HTTP --> AsyncLLM
+
+    AsyncLLM --> Processor
+    Processor --> Client
+    Client --> Core
+
+    Core --> Scheduler
+    Scheduler --> KVManager
+    Core --> Executor
+
+    Executor --> Worker1
+    Executor --> Worker2
+    Executor --> WorkerN
+
+    Worker1 --> Runner
+    Runner --> Attention
+    Runner --> Model
+    Attention --> KVManager
+
+    %% Styling
+    classDef api fill:#e1f5fe,stroke:#01579b
+    classDef engine fill:#f3e5f5,stroke:#4a148c
+    classDef core fill:#fff3e0,stroke:#e65100
+    classDef exec fill:#e8f5e9,stroke:#1b5e20
+    classDef model fill:#fce4ec,stroke:#880e4f
+
+    class CLI,SDK,HTTP api
+    class AsyncLLM,Processor,Client engine
+    class Core,Scheduler,KVManager core
+    class Executor,Worker1,Worker2,WorkerN exec
+    class Runner,Attention,Model model

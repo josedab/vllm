@@ -1,0 +1,51 @@
+%% vLLM Distributed Parallelism Strategies
+%% Commit: 67745d189fd981ee824bde35666a3737a962c031
+
+graph TB
+    subgraph "Tensor Parallelism (TP=4)"
+        direction LR
+        TP0[GPU 0<br/>Weights 0-25%]
+        TP1[GPU 1<br/>Weights 25-50%]
+        TP2[GPU 2<br/>Weights 50-75%]
+        TP3[GPU 3<br/>Weights 75-100%]
+
+        TP0 <--> |All-Reduce| TP1
+        TP1 <--> |All-Reduce| TP2
+        TP2 <--> |All-Reduce| TP3
+    end
+
+    subgraph "Pipeline Parallelism (PP=4)"
+        direction LR
+        PP0[GPU 0<br/>Layers 0-5]
+        PP1[GPU 1<br/>Layers 6-11]
+        PP2[GPU 2<br/>Layers 12-17]
+        PP3[GPU 3<br/>Layers 18-23]
+
+        PP0 --> |Activations| PP1
+        PP1 --> |Activations| PP2
+        PP2 --> |Activations| PP3
+    end
+
+    subgraph "Expert Parallelism (EP=4, 8 Experts)"
+        direction LR
+        EP0[GPU 0<br/>Experts 0,1]
+        EP1[GPU 1<br/>Experts 2,3]
+        EP2[GPU 2<br/>Experts 4,5]
+        EP3[GPU 3<br/>Experts 6,7]
+
+        EP0 <--> |All-to-All| EP1
+        EP1 <--> |All-to-All| EP2
+        EP2 <--> |All-to-All| EP3
+    end
+
+    Note1[TP: Best for single node<br/>High bandwidth NVLink]
+    Note2[PP: Best for multi-node<br/>Network interconnect]
+    Note3[EP: For MoE models<br/>Expert distribution]
+
+    classDef tp fill:#e3f2fd,stroke:#1565c0
+    classDef pp fill:#f3e5f5,stroke:#7b1fa2
+    classDef ep fill:#fff3e0,stroke:#ef6c00
+
+    class TP0,TP1,TP2,TP3 tp
+    class PP0,PP1,PP2,PP3 pp
+    class EP0,EP1,EP2,EP3 ep

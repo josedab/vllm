@@ -1,0 +1,47 @@
+%% PagedAttention Memory Management
+%% Commit: 67745d189fd981ee824bde35666a3737a962c031
+
+graph LR
+    subgraph "Logical View (Per Sequence)"
+        L0[Block 0]
+        L1[Block 1]
+        L2[Block 2]
+        L3[Block 3]
+    end
+
+    subgraph "Block Table"
+        BT[Logical → Physical<br/>0 → 3<br/>1 → 7<br/>2 → 2<br/>3 → 9]
+    end
+
+    subgraph "Physical GPU Memory"
+        P0[Block 0 - Free]
+        P1[Block 1 - Free]
+        P2[Block 2 - Seq A]
+        P3[Block 3 - Seq A]
+        P4[Block 4 - Free]
+        P5[Block 5 - Seq B]
+        P6[Block 6 - Free]
+        P7[Block 7 - Seq A]
+        P8[Block 8 - Free]
+        P9[Block 9 - Seq A]
+    end
+
+    L0 -.-> BT
+    L1 -.-> BT
+    L2 -.-> BT
+    L3 -.-> BT
+
+    BT --> P3
+    BT --> P7
+    BT --> P2
+    BT --> P9
+
+    classDef free fill:#e8f5e9,stroke:#2e7d32
+    classDef seqA fill:#e3f2fd,stroke:#1565c0
+    classDef seqB fill:#fff3e0,stroke:#ef6c00
+    classDef logical fill:#f3e5f5,stroke:#7b1fa2
+
+    class P0,P1,P4,P6,P8 free
+    class P2,P3,P7,P9 seqA
+    class P5 seqB
+    class L0,L1,L2,L3 logical

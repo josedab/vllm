@@ -1,0 +1,45 @@
+%% vLLM Request Data Flow
+%% Commit: 67745d189fd981ee824bde35666a3737a962c031
+
+sequenceDiagram
+    participant User
+    participant API as API Server
+    participant Proc as Processor
+    participant Core as EngineCore
+    participant Sched as Scheduler
+    participant KV as KVCacheManager
+    participant Worker as GPU Worker
+    participant Model as Model Runner
+
+    User->>API: HTTP Request
+    API->>Proc: Process Input
+    Proc->>Proc: Tokenize + Validate
+    Proc->>Core: Add Request
+
+    loop Each Iteration
+        Core->>Sched: Schedule Step
+        Sched->>KV: Allocate Blocks
+        KV-->>Sched: Block Tables
+        Sched-->>Core: Scheduled Batch
+
+        Core->>Worker: Execute Model
+        Worker->>Model: Forward Pass
+        Model->>Model: Attention + FFN
+        Model-->>Worker: Logits
+        Worker->>Worker: Sample Tokens
+        Worker-->>Core: New Tokens
+
+        Core->>Proc: Process Output
+
+        alt Streaming
+            Proc-->>API: Partial Response
+            API-->>User: SSE Event
+        end
+
+        alt Request Complete
+            Sched->>KV: Free Blocks
+        end
+    end
+
+    Proc-->>API: Final Response
+    API-->>User: Complete Response

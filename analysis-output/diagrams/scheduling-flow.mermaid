@@ -1,0 +1,36 @@
+%% vLLM Scheduler State Machine
+%% Commit: 67745d189fd981ee824bde35666a3737a962c031
+
+stateDiagram-v2
+    [*] --> WAITING: New Request
+
+    WAITING --> RUNNING: Scheduled<br/>(KV blocks allocated)
+
+    RUNNING --> FINISHED_STOPPED: Stop token<br/>generated
+    RUNNING --> FINISHED_LENGTH: Max tokens<br/>reached
+    RUNNING --> FINISHED_ABORTED: Error or<br/>cancelled
+    RUNNING --> PREEMPTED: Memory<br/>pressure
+
+    PREEMPTED --> WAITING: Resources<br/>available
+
+    FINISHED_STOPPED --> [*]
+    FINISHED_LENGTH --> [*]
+    FINISHED_ABORTED --> [*]
+
+    note right of WAITING
+        Request queued
+        No KV blocks yet
+        Priority-ordered
+    end note
+
+    note right of RUNNING
+        KV blocks allocated
+        Generating tokens
+        In active batch
+    end note
+
+    note right of PREEMPTED
+        KV cache swapped
+        or discarded
+        Awaiting reschedule
+    end note
