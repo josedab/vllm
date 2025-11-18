@@ -7,8 +7,11 @@ from torch import nn
 
 from vllm.config import ModelConfig, VllmConfig
 from vllm.config.load import LoadConfig
+from vllm.exceptions import VLLMModelLoadError
 from vllm.logger import init_logger
 from vllm.model_executor.model_loader.base_loader import BaseModelLoader
+from vllm.utils.error_context import ErrorContext
+from vllm.utils.known_issues import enhance_error
 from vllm.model_executor.model_loader.bitsandbytes_loader import BitsAndBytesModelLoader
 from vllm.model_executor.model_loader.default_loader import DefaultModelLoader
 from vllm.model_executor.model_loader.dummy_loader import DummyModelLoader
@@ -127,7 +130,71 @@ def get_model(
     loader = get_model_loader(vllm_config.load_config)
     if model_config is None:
         model_config = vllm_config.model_config
-    return loader.load_model(vllm_config=vllm_config, model_config=model_config)
+
+    try:
+        return loader.load_model(vllm_config=vllm_config, model_config=model_config)
+    except Exception as e:
+        # Check if this is a known error pattern that we can enhance
+        error_str = str(e).lower()
+
+        # Model not found or authentication errors
+        if any(
+            pattern in error_str
+            for pattern in [
+                "not found",
+                "404",
+                "does not appear to have",
+                "401",
+                "unauthorized",
+                "access denied",
+                "permission denied",
+                "gated repo",
+            ]
+        ):
+            context = {
+                "Model": model_config.model,
+            }
+            context.update(ErrorContext.get_system_context())
+            if hasattr(model_config, "tokenizer") and model_config.tokenizer:
+                context["Tokenizer"] = model_config.tokenizer
+            if hasattr(model_config, "revision") and model_config.revision:
+                context["Revision"] = model_config.revision
+
+            # Determine if it's auth or not found
+            if any(
+                pattern in error_str
+                for pattern in ["401", "unauthorized", "access denied", "gated"]
+            ):
+                raise VLLMModelLoadError(
+                    f"Authentication error loading model '{model_config.model}'",
+                    context=context,
+                    solutions=[
+                        "Login to HuggingFace: huggingface-cli login",
+                        "Set HF_TOKEN environment variable with your token",
+                        "Verify you have access to the model repository",
+                        "For gated models, accept the license agreement on HuggingFace",
+                    ],
+                    docs_url="https://docs.vllm.ai/en/latest/models/supported_models.html",
+                ) from e
+            else:
+                raise VLLMModelLoadError(
+                    f"Model '{model_config.model}' not found",
+                    context=context,
+                    solutions=[
+                        "Check the model name/path is correct",
+                        "Ensure you're logged in: huggingface-cli login",
+                        "For private models, set HF_TOKEN environment variable",
+                        "Check network connectivity to HuggingFace Hub",
+                        "Verify the model exists at the specified location",
+                    ],
+                    docs_url="https://docs.vllm.ai/en/latest/models/supported_models.html",
+                ) from e
+
+        # Re-raise other errors with enhancement attempt
+        enhanced = enhance_error(e)
+        if enhanced is not e:
+            raise enhanced from e
+        raise
 
 
 __all__ = [

@@ -5,6 +5,66 @@ This document outlines some troubleshooting strategies you can consider. If you 
 !!! note
     Once you've debugged a problem, remember to turn off any debugging environment variables defined, or simply start a new shell to avoid being affected by lingering debugging settings. Otherwise, the system might be slow with debugging functionalities left activated.
 
+## Understanding Enhanced Error Messages
+
+vLLM provides enhanced error messages that include context, suggested solutions, and links to relevant documentation. When you encounter an error, look for:
+
+- **Context**: Information about your current configuration (model, GPU memory, parallel settings)
+- **Solutions**: Numbered list of steps to resolve the issue
+- **Documentation**: Link to relevant documentation for more details
+
+### Example Enhanced Error
+
+Instead of a cryptic error like:
+
+```text
+RuntimeError: CUDA out of memory. Tried to allocate 2.00 GiB
+```
+
+You'll see:
+
+```text
+VLLMMemoryError: GPU memory exhausted during model execution
+
+Context:
+  Model: meta-llama/Llama-2-70b-hf
+  Operation: KV cache allocation
+  GPU: NVIDIA A100 80GB
+  Current utilization: 97%
+
+Solutions:
+  1. Reduce max_num_seqs from 256 to 128
+  2. Reduce max_model_len from 4096 to 2048
+  3. Enable quantization: --quantization fp8
+  4. Enable KV cache quantization: --kv-cache-dtype fp8_e4m3
+
+Documentation: https://docs.vllm.ai/en/latest/troubleshooting/memory.html
+```
+
+### Common Error Types
+
+vLLM uses specific error types to help you understand the category of issue:
+
+- `VLLMMemoryError`: GPU memory related issues
+- `VLLMConfigurationError`: Invalid or incompatible configuration
+- `VLLMModelLoadError`: Issues loading model weights or tokenizer
+- `VLLMDistributedError`: Multi-GPU or multi-node communication issues
+
+You can catch these errors programmatically:
+
+```python
+from vllm import LLM, VLLMMemoryError, VLLMConfigurationError
+
+try:
+    llm = LLM(model="large-model", tensor_parallel_size=8)
+except VLLMMemoryError as e:
+    print(f"Memory issue: {e}")
+    # Try with reduced settings
+except VLLMConfigurationError as e:
+    print(f"Configuration issue: {e}")
+    # Adjust configuration
+```
+
 ## Hangs downloading a model
 
 If the model isn't already downloaded to disk, vLLM will download it from the internet which can take time and depend on your internet connection.

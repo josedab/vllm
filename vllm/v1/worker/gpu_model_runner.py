@@ -76,7 +76,9 @@ from vllm.pooling_params import PoolingParams
 from vllm.sampling_params import SamplingType
 from vllm.sequence import IntermediateTensors
 from vllm.tasks import GenerationTask, PoolingTask, SupportedTask
+from vllm.exceptions import VLLMMemoryError
 from vllm.utils import length_from_prompt_token_ids_or_embeds
+from vllm.utils.error_context import ErrorContext
 from vllm.utils.jsontree import json_map_leaves
 from vllm.utils.math_utils import cdiv, round_up
 from vllm.utils.mem_constants import GiB_bytes
@@ -3955,11 +3957,28 @@ class GPUModelRunner(
             )
         except RuntimeError as e:
             if "out of memory" in str(e):
-                raise RuntimeError(
-                    "CUDA out of memory occurred when warming up sampler with "
-                    f"{num_reqs} dummy requests. Please try lowering "
-                    "`max_num_seqs` or `gpu_memory_utilization` when "
-                    "initializing the engine."
+                context = {
+                    "Operation": "Sampler warmup",
+                    "Dummy requests": num_reqs,
+                }
+                context.update(ErrorContext.get_memory_context())
+                context.update(
+                    ErrorContext.get_full_config_context(
+                        model_config=self.model_config,
+                        scheduler_config=self.scheduler_config,
+                        cache_config=self.cache_config,
+                    )
+                )
+                raise VLLMMemoryError(
+                    "GPU memory exhausted during sampler warmup",
+                    context=context,
+                    solutions=[
+                        f"Reduce max_num_seqs (current: {self.scheduler_config.max_num_seqs})",
+                        f"Reduce gpu_memory_utilization (current: {self.cache_config.gpu_memory_utilization})",
+                        "Enable quantization: --quantization fp8",
+                        "Enable KV cache quantization: --kv-cache-dtype fp8_e4m3",
+                    ],
+                    docs_url="https://docs.vllm.ai/en/latest/troubleshooting/memory.html",
                 ) from e
             else:
                 raise e
@@ -4034,11 +4053,29 @@ class GPUModelRunner(
             )
         except RuntimeError as e:
             if "out of memory" in str(e):
-                raise RuntimeError(
-                    "CUDA out of memory occurred when warming up pooler "
-                    f"({task=}) with {num_reqs} dummy requests. Please try "
-                    "lowering `max_num_seqs` or `gpu_memory_utilization` when "
-                    "initializing the engine."
+                context = {
+                    "Operation": "Pooler warmup",
+                    "Task": str(task),
+                    "Dummy requests": num_reqs,
+                }
+                context.update(ErrorContext.get_memory_context())
+                context.update(
+                    ErrorContext.get_full_config_context(
+                        model_config=self.model_config,
+                        scheduler_config=self.scheduler_config,
+                        cache_config=self.cache_config,
+                    )
+                )
+                raise VLLMMemoryError(
+                    f"GPU memory exhausted during pooler warmup ({task=})",
+                    context=context,
+                    solutions=[
+                        f"Reduce max_num_seqs (current: {self.scheduler_config.max_num_seqs})",
+                        f"Reduce gpu_memory_utilization (current: {self.cache_config.gpu_memory_utilization})",
+                        "Enable quantization: --quantization fp8",
+                        "Enable KV cache quantization: --kv-cache-dtype fp8_e4m3",
+                    ],
+                    docs_url="https://docs.vllm.ai/en/latest/troubleshooting/memory.html",
                 ) from e
             else:
                 raise e

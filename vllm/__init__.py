@@ -28,6 +28,12 @@ MODULE_ATTRS = {
     "ModelRegistry": ".model_executor.models:ModelRegistry",
     "SamplingParams": ".sampling_params:SamplingParams",
     "PoolingParams": ".pooling_params:PoolingParams",
+    # Enhanced exceptions
+    "VLLMError": ".exceptions:VLLMError",
+    "VLLMMemoryError": ".exceptions:VLLMMemoryError",
+    "VLLMConfigurationError": ".exceptions:VLLMConfigurationError",
+    "VLLMModelLoadError": ".exceptions:VLLMModelLoadError",
+    "VLLMDistributedError": ".exceptions:VLLMDistributedError",
     "ClassificationOutput": ".outputs:ClassificationOutput",
     "ClassificationRequestOutput": ".outputs:ClassificationRequestOutput",
     "CompletionOutput": ".outputs:CompletionOutput",
@@ -45,6 +51,13 @@ if typing.TYPE_CHECKING:
     from vllm.engine.async_llm_engine import AsyncLLMEngine
     from vllm.engine.llm_engine import LLMEngine
     from vllm.entrypoints.llm import LLM
+    from vllm.exceptions import (
+        VLLMConfigurationError,
+        VLLMDistributedError,
+        VLLMError,
+        VLLMMemoryError,
+        VLLMModelLoadError,
+    )
     from vllm.inputs import PromptType, TextPrompt, TokensPrompt
     from vllm.model_executor.models import ModelRegistry
     from vllm.outputs import (
@@ -104,4 +117,10 @@ __all__ = [
     "AsyncEngineArgs",
     "initialize_ray_cluster",
     "PoolingParams",
+    # Enhanced exceptions
+    "VLLMError",
+    "VLLMMemoryError",
+    "VLLMConfigurationError",
+    "VLLMModelLoadError",
+    "VLLMDistributedError",
 ]

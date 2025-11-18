@@ -13,6 +13,7 @@ from typing_extensions import Self
 
 import vllm.envs as envs
 from vllm.config.utils import config
+from vllm.exceptions import VLLMConfigurationError
 from vllm.logger import init_logger
 from vllm.model_executor.layers.batch_invariant import (
     vllm_is_batch_invariant,
@@ -564,9 +565,31 @@ class ParallelConfig:
                 and cuda_device_count_stateless() < self.world_size
             ):
                 gpu_count = cuda_device_count_stateless()
-                raise ValueError(
-                    f"Tensor parallel size ({self.world_size}) cannot be "
-                    f"larger than the number of available GPUs ({gpu_count})."
+                # Get GPU names for context
+                gpu_names = []
+                try:
+                    gpu_names = [
+                        torch.cuda.get_device_name(i) for i in range(gpu_count)
+                    ]
+                except Exception:
+                    pass
+
+                raise VLLMConfigurationError(
+                    "Tensor parallel size exceeds available GPUs",
+                    context={
+                        "tensor_parallel_size": self.tensor_parallel_size,
+                        "pipeline_parallel_size": self.pipeline_parallel_size,
+                        "world_size": self.world_size,
+                        "Available GPUs": gpu_count,
+                        "GPU devices": gpu_names if gpu_names else "N/A",
+                    },
+                    solutions=[
+                        f"Reduce tensor_parallel_size to {gpu_count} or less",
+                        "Add more GPUs to your system",
+                        "Use pipeline parallelism across multiple nodes instead",
+                        "Consider using a smaller model that requires less parallelism",
+                    ],
+                    docs_url="https://docs.vllm.ai/en/latest/serving/distributed_serving.html",
                 )
             elif self.data_parallel_backend == "ray":
                 logger.info(
