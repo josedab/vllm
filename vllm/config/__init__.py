@@ -23,6 +23,13 @@ from vllm.config.multimodal import MultiModalConfig
 from vllm.config.observability import ObservabilityConfig
 from vllm.config.parallel import EPLBConfig, ParallelConfig
 from vllm.config.pooler import PoolerConfig
+from vllm.config.profiles import (
+    ConfigProfile,
+    apply_profile_settings,
+    get_profile_description,
+    get_profile_settings,
+    list_profiles,
+)
 from vllm.config.scheduler import SchedulerConfig
 from vllm.config.speculative import SpeculativeConfig
 from vllm.config.speech_to_text import SpeechToTextConfig
@@ -34,6 +41,13 @@ from vllm.config.utils import (
     get_attr_docs,
     is_init_field,
     update_config,
+)
+from vllm.config.validation import (
+    ConfigurationError,
+    ConfigurationWarning,
+    check_deprecated_env_vars,
+    validate_config,
+    validate_profile_overrides,
 )
 from vllm.config.vllm import (
     VllmConfig,
@@ -78,6 +92,12 @@ __all__ = [
     "ParallelConfig",
     # From vllm.config.pooler
     "PoolerConfig",
+    # From vllm.config.profiles
+    "ConfigProfile",
+    "apply_profile_settings",
+    "get_profile_description",
+    "get_profile_settings",
+    "list_profiles",
     # From vllm.config.scheduler
     "SchedulerConfig",
     # From vllm.config.speculative
@@ -93,6 +113,12 @@ __all__ = [
     "get_attr_docs",
     "is_init_field",
     "update_config",
+    # From vllm.config.validation
+    "ConfigurationError",
+    "ConfigurationWarning",
+    "check_deprecated_env_vars",
+    "validate_config",
+    "validate_profile_overrides",
     # From vllm.config.vllm
     "VllmConfig",
     "get_cached_compilation_config",

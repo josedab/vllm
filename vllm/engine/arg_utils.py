@@ -36,6 +36,7 @@ from vllm.attention.backends.registry import AttentionBackendEnum
 from vllm.config import (
     CacheConfig,
     CompilationConfig,
+    ConfigProfile,
     ConfigType,
     DeviceConfig,
     ECTransferConfig,
@@ -54,6 +55,7 @@ from vllm.config import (
     StructuredOutputsConfig,
     VllmConfig,
     get_attr_docs,
+    get_profile_settings,
 )
 from vllm.config.cache import (
     BlockSize,
@@ -349,6 +351,8 @@ class EngineArgs:
     """Arguments for vLLM engine."""
 
     model: str = ModelConfig.model
+    profile: ConfigProfile | str | None = None
+    """Configuration profile for common use cases (high_throughput, low_latency, memory_constrained, development)"""
     served_model_name: str | list[str] | None = ModelConfig.served_model_name
     tokenizer: str | None = ModelConfig.tokenizer
     hf_config_path: str | None = ModelConfig.hf_config_path
@@ -574,6 +578,43 @@ class EngineArgs:
     tokens_only: bool = False
 
     def __post_init__(self):
+        # Apply profile settings as defaults
+        # Profile settings are applied first, then user overrides take precedence
+        if self.profile is not None:
+            profile_settings = get_profile_settings(self.profile)
+            for key, value in profile_settings.items():
+                # Skip internal keys (starting with _)
+                if key.startswith("_"):
+                    # Handle special keys like _compilation_level
+                    if key == "_compilation_level":
+                        # Only apply if user didn't specify compilation_config
+                        if self.compilation_config == CompilationConfig():
+                            from vllm.config.compilation import CompilationMode
+                            self.compilation_config = CompilationConfig(
+                                mode=CompilationMode(value)
+                            )
+                    continue
+                # Only apply profile setting if the current value is the default
+                # This allows user overrides to take precedence
+                if hasattr(self, key):
+                    current_value = getattr(self, key)
+                    # Get the default value for this field
+                    field_info = next(
+                        (f for f in dataclasses.fields(self) if f.name == key),
+                        None
+                    )
+                    if field_info is not None:
+                        default_value = field_info.default
+                        if default_value is MISSING:
+                            default_value = (
+                                field_info.default_factory()
+                                if field_info.default_factory is not MISSING
+                                else None
+                            )
+                        # Apply profile setting if current value equals default
+                        if current_value == default_value:
+                            setattr(self, key, value)
+
         # support `EngineArgs(compilation_config={...})`
         # without having to manually construct a
         # CompilationConfig object
@@ -607,6 +648,17 @@ class EngineArgs:
         )
         if not ("serve" in sys.argv[1:] and "--help" in sys.argv[1:]):
             model_group.add_argument("--model", **model_kwargs["model"])
+        # Add profile argument for configuration presets
+        model_group.add_argument(
+            "--profile",
+            type=str,
+            default=None,
+            choices=["high_throughput", "low_latency", "memory_constrained", "development"],
+            help="Configuration profile for common use cases. Profiles provide "
+                 "optimized defaults that can be overridden by other arguments. "
+                 "Options: high_throughput (max tokens/sec), low_latency (fast responses), "
+                 "memory_constrained (minimal GPU memory), development (debugging)."
+        )
         model_group.add_argument("--runner", **model_kwargs["runner"])
         model_group.add_argument("--convert", **model_kwargs["convert"])
         model_group.add_argument("--task", **model_kwargs["task"], deprecated=True)

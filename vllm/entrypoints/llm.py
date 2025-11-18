@@ -19,6 +19,7 @@ from vllm.beam_search import (
 )
 from vllm.config import (
     CompilationConfig,
+    ConfigProfile,
     PoolerConfig,
     StructuredOutputsConfig,
     is_init_field,
@@ -102,6 +103,11 @@ class LLM:
 
     Args:
         model: The name or path of a HuggingFace Transformers model.
+        profile: Configuration profile for common use cases. Profiles provide
+            optimized defaults that can be overridden by other arguments.
+            Options: HIGH_THROUGHPUT (max tokens/sec), LOW_LATENCY (fast
+            responses), MEMORY_CONSTRAINED (minimal GPU memory), DEVELOPMENT
+            (debugging). Import ConfigProfile from vllm.config.
         tokenizer: The name or path of a HuggingFace Transformers tokenizer.
         tokenizer_mode: The tokenizer mode. "auto" will use the fast tokenizer
             if available, and "slow" will always use the slow tokenizer.
@@ -191,6 +197,7 @@ class LLM:
         self,
         model: str,
         *,
+        profile: ConfigProfile | str | None = None,
         runner: RunnerOption = "auto",
         convert: ConvertOption = "auto",
         tokenizer: str | None = None,
@@ -306,6 +313,7 @@ class LLM:
 
         engine_args = EngineArgs(
             model=model,
+            profile=profile,
             runner=runner,
             convert=convert,
             tokenizer=tokenizer,
