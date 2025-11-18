@@ -21,6 +21,8 @@ MODULE_ATTRS = {
     "AsyncLLMEngine": ".engine.async_llm_engine:AsyncLLMEngine",
     "LLMEngine": ".engine.llm_engine:LLMEngine",
     "LLM": ".entrypoints.llm:LLM",
+    "AutoTune": ".autotune:AutoTune",
+    "AutoTuner": ".autotune:AutoTuner",
     "initialize_ray_cluster": ".v1.executor.ray_utils:initialize_ray_cluster",
     "PromptType": ".inputs:PromptType",
     "TextPrompt": ".inputs:TextPrompt",
@@ -41,6 +43,7 @@ MODULE_ATTRS = {
 }
 
 if typing.TYPE_CHECKING:
+    from vllm.autotune import AutoTune, AutoTuner
     from vllm.engine.arg_utils import AsyncEngineArgs, EngineArgs
     from vllm.engine.async_llm_engine import AsyncLLMEngine
     from vllm.engine.llm_engine import LLMEngine
@@ -83,6 +86,8 @@ __all__ = [
     "bc_linter_include",
     "__version_tuple__",
     "LLM",
+    "AutoTune",
+    "AutoTuner",
     "ModelRegistry",
     "PromptType",
     "TextPrompt",

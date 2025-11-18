@@ -84,6 +84,7 @@ from vllm.v1.engine.llm_engine import LLMEngine
 from vllm.v1.sample.logits_processor import LogitsProcessor
 
 if TYPE_CHECKING:
+    from vllm.autotune import AutoTune
     from vllm.v1.metrics.reader import Metric
 
 logger = init_logger(__name__)
@@ -180,6 +181,8 @@ class LLM:
         compilation_config: Either an integer or a dictionary. If it is an
             integer, it is used as the mode of compilation optimization. If it
             is a dictionary, it can specify the full compilation configuration.
+        auto_tune: Enable automatic configuration tuning. Can be True for
+            default tuning, or an AutoTune instance with specific hints.
         **kwargs: Arguments for [`EngineArgs`][vllm.EngineArgs].
 
     Note:
@@ -221,6 +224,7 @@ class LLM:
         kv_cache_memory_bytes: int | None = None,
         compilation_config: int | dict[str, Any] | CompilationConfig | None = None,
         logits_processors: list[str | type[LogitsProcessor]] | None = None,
+        auto_tune: bool | "AutoTune" | None = None,
         **kwargs: Any,
     ) -> None:
         """LLM constructor."""
@@ -256,6 +260,38 @@ class LLM:
 
         if hf_overrides is None:
             hf_overrides = {}
+
+        # Apply auto-tuning if enabled
+        if auto_tune is not None and auto_tune is not False:
+            from vllm.autotune import AutoTuner
+
+            tuner = AutoTuner()
+            tuned_args = tuner.get_engine_args(model, auto_tune)
+
+            # Apply tuned args only if not explicitly set
+            if (
+                tuned_args.get("tensor_parallel_size")
+                and tensor_parallel_size == 1
+            ):
+                tensor_parallel_size = tuned_args["tensor_parallel_size"]
+            if tuned_args.get("max_num_seqs") and "max_num_seqs" not in kwargs:
+                kwargs["max_num_seqs"] = tuned_args["max_num_seqs"]
+            if tuned_args.get("max_model_len") and "max_model_len" not in kwargs:
+                kwargs["max_model_len"] = tuned_args["max_model_len"]
+            if (
+                tuned_args.get("gpu_memory_utilization")
+                and gpu_memory_utilization == 0.9
+            ):
+                gpu_memory_utilization = tuned_args["gpu_memory_utilization"]
+            if tuned_args.get("quantization") and quantization is None:
+                quantization = tuned_args["quantization"]
+            if (
+                tuned_args.get("enable_prefix_caching")
+                and "enable_prefix_caching" not in kwargs
+            ):
+                kwargs["enable_prefix_caching"] = tuned_args["enable_prefix_caching"]
+
+            logger.info("Auto-tune applied configuration: %s", tuned_args)
 
         if compilation_config is not None:
             if isinstance(compilation_config, int):
