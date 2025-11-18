@@ -1,0 +1,92 @@
+name: Documentation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'vllm/**/*.py'
+      - 'docs/**'
+      - 'tools/check_docstrings.py'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'vllm/**/*.py'
+      - 'docs/**'
+      - 'tools/check_docstrings.py'
+
+jobs:
+  check-docstrings:
+    name: Check Docstring Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Check docstring coverage
+        run: |
+          python tools/check_docstrings.py --threshold=50 --verbose
+
+  build-docs:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements/docs.txt || pip install sphinx sphinx-rtd-theme myst-parser
+
+      - name: Build documentation
+        run: |
+          # Build docs if sphinx conf exists
+          if [ -f docs/conf.py ]; then
+            cd docs && make html
+          else
+            echo "Sphinx config not found, skipping build"
+          fi
+
+  check-links:
+    name: Check Documentation Links
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for broken links in markdown
+        run: |
+          # Simple check for obviously broken internal links
+          echo "Checking for broken internal links..."
+
+          # Find all markdown files and check for broken relative links
+          find docs -name "*.md" -type f | while read -r file; do
+            # Extract relative links and check if they exist
+            grep -oP '\]\(\K[^)]+(?=\))' "$file" 2>/dev/null | while read -r link; do
+              # Skip external links and anchors
+              if [[ "$link" =~ ^https?:// ]] || [[ "$link" =~ ^# ]] || [[ "$link" =~ ^mailto: ]]; then
+                continue
+              fi
+
+              # Check if the file exists (relative to the markdown file's directory)
+              dir=$(dirname "$file")
+              target="$dir/$link"
+
+              # Remove any anchor from the link
+              target=$(echo "$target" | sed 's/#.*//')
+
+              if [ -n "$target" ] && [ ! -e "$target" ]; then
+                echo "Warning: Broken link in $file: $link"
+              fi
+            done
+          done
+
+          echo "Link check completed"
