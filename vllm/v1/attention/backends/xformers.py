@@ -44,6 +44,17 @@ class XFormersAttentionBackend(AttentionBackend):
     supported_dtypes: ClassVar[list[torch.dtype]] = [torch.float16, torch.bfloat16]
     supported_kernel_block_sizes: ClassVar[list[int | MultipleOf]] = [MultipleOf(16)]
 
+    # XFormers capabilities - P1 priority, legacy support
+    CAPABILITIES: ClassVar[dict[str, bool]] = {
+        "paged_attention": True,
+        "prefix_caching": False,
+        "sliding_window": False,
+        "speculative_decoding": True,
+        "chunked_prefill": True,
+        "multi_step_decoding": False,
+    }
+    selection_priority: ClassVar[int] = 50  # P1 priority
+
     @classmethod
     def get_supported_head_sizes(cls) -> list[int]:
         return [

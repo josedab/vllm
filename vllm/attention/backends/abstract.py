@@ -49,6 +49,21 @@ class AttentionBackend(ABC):
     supported_kernel_block_sizes: ClassVar[list[int | MultipleOf]] = [MultipleOf(1)]
     supported_kv_cache_dtypes: ClassVar[list["CacheDType"]] = ["auto"]
 
+    # Capabilities feature matrix - backends should override these
+    # to declare their supported features for automatic selection
+    CAPABILITIES: ClassVar[dict[str, bool]] = {
+        "paged_attention": True,
+        "prefix_caching": False,
+        "sliding_window": False,
+        "speculative_decoding": False,
+        "chunked_prefill": False,
+        "multi_step_decoding": False,
+    }
+
+    # Priority for automatic selection (higher = preferred)
+    # P0 = 100, P1 = 50, P2 = 10
+    selection_priority: ClassVar[int] = 50
+
     @staticmethod
     @abstractmethod
     def get_name() -> str:
@@ -226,6 +241,52 @@ class AttentionBackend(ABC):
     @classmethod
     def get_required_kv_cache_layout(cls) -> "KVCacheLayoutType | None":
         return None
+
+    # Capability checking methods
+    @classmethod
+    def supports_paged_attention(cls) -> bool:
+        """Check if backend supports paged attention."""
+        return cls.CAPABILITIES.get("paged_attention", True)
+
+    @classmethod
+    def supports_prefix_caching(cls) -> bool:
+        """Check if backend supports prefix caching."""
+        return cls.CAPABILITIES.get("prefix_caching", False)
+
+    @classmethod
+    def supports_sliding_window(cls) -> bool:
+        """Check if backend supports sliding window attention."""
+        return cls.CAPABILITIES.get("sliding_window", False)
+
+    @classmethod
+    def supports_speculative_decoding(cls) -> bool:
+        """Check if backend supports speculative decoding."""
+        return cls.CAPABILITIES.get("speculative_decoding", False)
+
+    @classmethod
+    def supports_chunked_prefill(cls) -> bool:
+        """Check if backend supports chunked prefill."""
+        return cls.CAPABILITIES.get("chunked_prefill", False)
+
+    @classmethod
+    def supports_multi_step_decoding(cls) -> bool:
+        """Check if backend supports multi-step decoding."""
+        return cls.CAPABILITIES.get("multi_step_decoding", False)
+
+    @classmethod
+    def get_capabilities(cls) -> dict[str, bool]:
+        """Get the complete capabilities dictionary for this backend."""
+        return cls.CAPABILITIES.copy()
+
+    @classmethod
+    def supports_features(cls, features: set[str]) -> bool:
+        """Check if backend supports all requested features."""
+        return all(cls.CAPABILITIES.get(feature, False) for feature in features)
+
+    @classmethod
+    def get_selection_priority(cls) -> int:
+        """Get selection priority for automatic backend selection."""
+        return cls.selection_priority
 
 
 class AttentionMetadata:

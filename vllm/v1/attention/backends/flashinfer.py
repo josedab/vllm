@@ -286,6 +286,17 @@ class FlashInferBackend(AttentionBackend):
         "fp8_e5m2",
     ]
 
+    # FlashInfer capabilities - P0 priority backend with advanced features
+    CAPABILITIES: ClassVar[dict[str, bool]] = {
+        "paged_attention": True,
+        "prefix_caching": True,
+        "sliding_window": True,
+        "speculative_decoding": True,
+        "chunked_prefill": True,
+        "multi_step_decoding": True,
+    }
+    selection_priority: ClassVar[int] = 100  # P0 priority
+
     @staticmethod
     def get_name() -> str:
         return "FLASHINFER"

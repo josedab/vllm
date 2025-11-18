@@ -3,6 +3,7 @@
 
 import inspect
 import os
+import warnings
 from collections.abc import Generator
 from contextlib import contextmanager
 from functools import cache
@@ -19,6 +20,108 @@ from vllm.utils import STR_BACKEND_ENV_VAR
 from vllm.utils.import_utils import resolve_obj_by_qualname
 
 logger = init_logger(__name__)
+
+# Deprecated backends with their replacement mappings
+# Format: {deprecated_backend: replacement_backend}
+DEPRECATED_BACKENDS: dict[str, str] = {
+    # Add deprecated backends here as they are identified
+    # Example: "BLOCKSPARSE": "FLASH_ATTN",
+}
+
+# Backend deprecation versions
+DEPRECATION_SCHEDULE: dict[str, dict[str, str]] = {
+    # Format: {backend_name: {"deprecated_in": "v0.6.0", "removed_in": "v0.7.0"}}
+}
+
+
+def get_backend_by_features(
+    features_required: set[str],
+    available_backends: list[type[AttentionBackend]] | None = None,
+) -> type[AttentionBackend] | None:
+    """
+    Select the best backend that supports all required features.
+
+    Args:
+        features_required: Set of feature names that must be supported
+        available_backends: Optional list of backends to consider
+
+    Returns:
+        The backend class with highest priority that supports all features,
+        or None if no suitable backend found
+    """
+    if available_backends is None:
+        # Get all registered backends
+        available_backends = []
+        for backend_enum in AttentionBackendEnum:
+            try:
+                backend_cls = backend_enum.get_class()
+                available_backends.append(backend_cls)
+            except (ImportError, ValueError):
+                continue
+
+    candidates = []
+    for backend in available_backends:
+        if backend.supports_features(features_required):
+            candidates.append(backend)
+
+    if not candidates:
+        return None
+
+    # Sort by selection priority (highest first)
+    candidates.sort(key=lambda b: b.get_selection_priority(), reverse=True)
+    return candidates[0]
+
+
+def check_deprecated_backend(backend_name: str) -> str | None:
+    """
+    Check if a backend is deprecated and return its replacement if so.
+
+    Args:
+        backend_name: Name of the backend to check
+
+    Returns:
+        Replacement backend name if deprecated, None otherwise
+    """
+    if backend_name in DEPRECATED_BACKENDS:
+        replacement = DEPRECATED_BACKENDS[backend_name]
+        schedule = DEPRECATION_SCHEDULE.get(backend_name, {})
+        deprecated_in = schedule.get("deprecated_in", "a future version")
+        removed_in = schedule.get("removed_in", "a future version")
+
+        warnings.warn(
+            f"Attention backend '{backend_name}' is deprecated since "
+            f"{deprecated_in} and will be removed in {removed_in}. "
+            f"Using '{replacement}' instead. Please update your configuration.",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        logger.warning(
+            "Backend %s is deprecated, automatically migrating to %s",
+            backend_name,
+            replacement,
+        )
+        return replacement
+    return None
+
+
+def get_backend_capabilities_summary() -> dict[str, dict[str, bool]]:
+    """
+    Get a summary of all backend capabilities for documentation purposes.
+
+    Returns:
+        Dict mapping backend names to their capabilities
+    """
+    summary = {}
+    for backend_enum in AttentionBackendEnum:
+        try:
+            backend_cls = backend_enum.get_class()
+            summary[backend_enum.name] = {
+                "capabilities": backend_cls.get_capabilities(),
+                "priority": backend_cls.get_selection_priority(),
+            }
+        except (ImportError, ValueError):
+            continue
+    return summary
 
 
 def get_env_variable_attn_backend() -> AttentionBackendEnum | None:
@@ -134,6 +237,12 @@ def _cached_get_attn_backend(
                     STR_BACKEND_ENV_VAR,
                 )
                 backend_by_env_var = backend_by_env_var.removesuffix("_VLLM_V1")
+
+            # Check for deprecated backends and migrate if necessary
+            replacement = check_deprecated_backend(backend_by_env_var)
+            if replacement is not None:
+                backend_by_env_var = replacement
+
             try:
                 selected_backend = AttentionBackendEnum[backend_by_env_var]
             except KeyError as e:

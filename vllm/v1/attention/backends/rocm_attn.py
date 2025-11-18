@@ -154,6 +154,17 @@ class RocmAttentionBackend(AttentionBackend):
     accept_output_buffer: bool = True
     supported_dtypes: ClassVar[list[torch.dtype]] = [torch.float16, torch.bfloat16]
 
+    # ROCm capabilities - P0 priority for AMD GPUs
+    CAPABILITIES: ClassVar[dict[str, bool]] = {
+        "paged_attention": True,
+        "prefix_caching": True,
+        "sliding_window": False,
+        "speculative_decoding": True,
+        "chunked_prefill": True,
+        "multi_step_decoding": False,
+    }
+    selection_priority: ClassVar[int] = 100  # P0 priority for AMD
+
     @classmethod
     def get_supported_head_sizes(cls) -> list[int]:
         return [32, 64, 96, 128, 160, 192, 224, 256]

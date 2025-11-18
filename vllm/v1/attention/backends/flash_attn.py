@@ -62,6 +62,17 @@ class FlashAttentionBackend(AttentionBackend):
     # https://github.com/Dao-AILab/flash-attention/issues/1974
     supported_kernel_block_sizes: ClassVar[list[int | MultipleOf]] = [16, 32, 64]
 
+    # FlashAttention capabilities - P0 priority backend
+    CAPABILITIES: ClassVar[dict[str, bool]] = {
+        "paged_attention": True,
+        "prefix_caching": True,
+        "sliding_window": True,
+        "speculative_decoding": True,
+        "chunked_prefill": True,
+        "multi_step_decoding": True,
+    }
+    selection_priority: ClassVar[int] = 100  # P0 priority
+
     @staticmethod
     def get_name() -> str:
         return "FLASH_ATTN"

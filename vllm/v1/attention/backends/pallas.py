@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 
 from dataclasses import dataclass
+from typing import ClassVar
 
 import torch
 
@@ -100,6 +101,17 @@ except ImportError:
 
 
 class PallasAttentionBackend(AttentionBackend):
+    # Pallas capabilities - P0 priority for TPU
+    CAPABILITIES: ClassVar[dict[str, bool]] = {
+        "paged_attention": True,
+        "prefix_caching": False,
+        "sliding_window": False,
+        "speculative_decoding": False,
+        "chunked_prefill": False,
+        "multi_step_decoding": False,
+    }
+    selection_priority: ClassVar[int] = 100  # P0 priority for TPU
+
     @staticmethod
     def get_name() -> str:
         return "PALLAS"

@@ -36,6 +36,17 @@ class CPUAttentionBackend(AttentionBackend):
         torch.float32,
     ]
 
+    # CPU capabilities - Fallback backend
+    CAPABILITIES: ClassVar[dict[str, bool]] = {
+        "paged_attention": True,
+        "prefix_caching": False,
+        "sliding_window": False,
+        "speculative_decoding": False,
+        "chunked_prefill": False,
+        "multi_step_decoding": False,
+    }
+    selection_priority: ClassVar[int] = 10  # Low priority fallback
+
     @classmethod
     def get_supported_dtypes(cls) -> list[torch.dtype]:
         return [torch.float16, torch.bfloat16, torch.float32]

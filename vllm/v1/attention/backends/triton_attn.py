@@ -162,6 +162,17 @@ class TritonAttentionBackend(AttentionBackend):
         "fp8_e5m2",
     ]
 
+    # Triton capabilities - P1 priority, portable backend
+    CAPABILITIES: ClassVar[dict[str, bool]] = {
+        "paged_attention": True,
+        "prefix_caching": False,
+        "sliding_window": True,
+        "speculative_decoding": True,
+        "chunked_prefill": True,
+        "multi_step_decoding": False,
+    }
+    selection_priority: ClassVar[int] = 50  # P1 priority
+
     @staticmethod
     def get_name() -> str:
         return "TRITON_ATTN"
