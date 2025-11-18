@@ -1,0 +1,69 @@
+# Docker Compose for vLLM Observability Stack
+# This sets up a complete monitoring stack with Prometheus and Grafana
+#
+# Usage:
+#   docker-compose -f docker-compose.yaml up -d
+#
+# Note: vLLM should be running separately with metrics enabled at :8000/metrics
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: vllm-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yaml:/etc/prometheus/prometheus.yml
+      - ./alerts/vllm_alerts.yaml:/etc/prometheus/rules/vllm_alerts.yaml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    networks:
+      - vllm-monitoring
+
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: vllm-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=vllm-monitoring
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ../dashboards/grafana:/var/lib/grafana/dashboards
+    restart: unless-stopped
+    networks:
+      - vllm-monitoring
+    depends_on:
+      - prometheus
+
+  alertmanager:
+    image: prom/alertmanager:v0.26.0
+    container_name: vllm-alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager/alertmanager.yaml:/etc/alertmanager/alertmanager.yml
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    restart: unless-stopped
+    networks:
+      - vllm-monitoring
+
+volumes:
+  prometheus_data:
+  grafana_data:
+  alertmanager_data:
+
+networks:
+  vllm-monitoring:
+    driver: bridge

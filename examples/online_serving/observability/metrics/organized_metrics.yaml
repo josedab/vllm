@@ -1,0 +1,185 @@
+# vLLM Metrics Organization
+# This file organizes vLLM Prometheus metrics by domain for easier understanding
+# and monitoring setup.
+
+latency:
+  - name: vllm:time_to_first_token_seconds
+    description: Time to generate first token (TTFT)
+    type: histogram
+    importance: critical
+    alert_threshold:
+      warning: p99 > 100ms
+      critical: p99 > 500ms
+
+  - name: vllm:inter_token_latency_seconds
+    description: Time between consecutive tokens (ITL)
+    type: histogram
+    importance: critical
+    alert_threshold:
+      warning: p99 > 50ms
+      critical: p99 > 200ms
+
+  - name: vllm:e2e_request_latency_seconds
+    description: End-to-end request latency
+    type: histogram
+    importance: high
+
+  - name: vllm:request_queue_time_seconds
+    description: Time spent waiting in queue
+    type: histogram
+    importance: high
+
+  - name: vllm:request_prefill_time_seconds
+    description: Time spent in prefill phase
+    type: histogram
+    importance: medium
+
+  - name: vllm:request_decode_time_seconds
+    description: Time spent in decode phase
+    type: histogram
+    importance: medium
+
+  - name: vllm:request_inference_time_seconds
+    description: Total inference time (prefill + decode)
+    type: histogram
+    importance: medium
+
+throughput:
+  - name: vllm:prompt_tokens
+    description: Total prompt tokens processed
+    type: counter
+    importance: critical
+
+  - name: vllm:generation_tokens
+    description: Total generation tokens produced
+    type: counter
+    importance: critical
+
+  - name: vllm:iteration_tokens_total
+    description: Tokens processed per engine step
+    type: histogram
+    importance: medium
+
+  - name: vllm:request_prompt_tokens
+    description: Prompt tokens per request
+    type: histogram
+    importance: low
+
+  - name: vllm:request_generation_tokens
+    description: Generation tokens per request
+    type: histogram
+    importance: low
+
+resources:
+  - name: vllm:kv_cache_usage_perc
+    description: KV cache memory utilization (0-1)
+    type: gauge
+    importance: critical
+    alert_threshold:
+      warning: "> 0.90"
+      critical: "> 0.98"
+
+  - name: vllm:num_requests_running
+    description: Requests currently being processed
+    type: gauge
+    importance: high
+
+  - name: vllm:num_requests_waiting
+    description: Requests waiting in queue
+    type: gauge
+    importance: high
+    alert_threshold:
+      warning: "> 50"
+      critical: "> 100"
+
+  - name: vllm:num_preemptions
+    description: Cumulative preemption count
+    type: counter
+    importance: high
+    alert_threshold:
+      warning: rate > 0.5/min
+      critical: rate > 2/min
+
+cache:
+  - name: vllm:prefix_cache_hits
+    description: Prefix cache hits (tokens)
+    type: counter
+    importance: medium
+
+  - name: vllm:prefix_cache_queries
+    description: Total prefix cache queries (tokens)
+    type: counter
+    importance: medium
+
+  - name: vllm:external_prefix_cache_hits
+    description: External KV connector cache hits
+    type: counter
+    importance: low
+
+  - name: vllm:external_prefix_cache_queries
+    description: External KV connector cache queries
+    type: counter
+    importance: low
+
+  - name: vllm:mm_cache_hits
+    description: Multi-modal cache hits
+    type: counter
+    importance: low
+
+  - name: vllm:mm_cache_queries
+    description: Multi-modal cache queries
+    type: counter
+    importance: low
+
+requests:
+  - name: vllm:request_success
+    description: Successfully completed requests by finish reason
+    type: counter
+    importance: high
+    labels:
+      - finished_reason
+
+  - name: vllm:request_params_n
+    description: Distribution of n parameter
+    type: histogram
+    importance: low
+
+  - name: vllm:request_params_max_tokens
+    description: Distribution of max_tokens parameter
+    type: histogram
+    importance: low
+
+  - name: vllm:request_max_num_generation_tokens
+    description: Maximum generation tokens requested
+    type: histogram
+    importance: low
+
+system:
+  - name: vllm:engine_sleep_state
+    description: Engine sleep state (awake/sleeping)
+    type: gauge
+    importance: low
+    labels:
+      - sleep_state
+
+  - name: vllm:cache_config_info
+    description: Cache configuration metadata
+    type: info
+    importance: low
+
+# Calculated metrics (for reference in dashboards)
+calculated:
+  - name: prefix_cache_hit_rate
+    formula: rate(vllm:prefix_cache_hits[5m]) / rate(vllm:prefix_cache_queries[5m])
+    description: Prefix cache hit rate
+    importance: medium
+
+  - name: generation_throughput
+    formula: rate(vllm:generation_tokens[5m])
+    description: Generation tokens per second
+    importance: critical
+
+  - name: prompt_throughput
+    formula: rate(vllm:prompt_tokens[5m])
+    description: Prompt tokens per second
+    importance: critical

@@ -1,0 +1,56 @@
+# Prometheus configuration for vLLM monitoring
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+# Load rules
+rule_files:
+  - "/etc/prometheus/rules/*.yaml"
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # vLLM metrics
+  # Update the target to match your vLLM deployment
+  - job_name: 'vllm'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['host.docker.internal:8000']
+        labels:
+          service: 'vllm'
+    # Alternative: use DNS service discovery for Kubernetes
+    # kubernetes_sd_configs:
+    #   - role: endpoints
+    #     namespaces:
+    #       names:
+    #         - vllm
+    # relabel_configs:
+    #   - source_labels: [__meta_kubernetes_service_name]
+    #     regex: vllm
+    #     action: keep
+
+  # For multiple vLLM instances
+  # - job_name: 'vllm-cluster'
+  #   static_configs:
+  #     - targets:
+  #         - 'vllm-0:8000'
+  #         - 'vllm-1:8000'
+  #         - 'vllm-2:8000'
+  #       labels:
+  #         cluster: 'production'
+
+# Remote write configuration (optional)
+# Uncomment to send metrics to a remote storage
+# remote_write:
+#   - url: "https://prometheus-remote-write-endpoint/api/v1/write"

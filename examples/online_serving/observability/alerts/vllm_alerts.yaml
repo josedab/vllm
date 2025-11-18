@@ -1,0 +1,132 @@
+# vLLM Prometheus Alert Rules
+# Import these rules into your Prometheus configuration
+
+groups:
+  - name: vllm_latency
+    rules:
+      - alert: VLLMHighTTFTLatency
+        expr: histogram_quantile(0.99, sum by(le) (rate(vllm:time_to_first_token_seconds_bucket[5m]))) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High Time to First Token latency (P99 > 500ms)"
+          description: "vLLM TTFT P99 latency is {{ $value | humanizeDuration }} which exceeds the 500ms threshold."
+          runbook_url: "https://github.com/vllm-project/vllm/blob/main/examples/online_serving/observability/runbooks/high-latency.md"
+
+      - alert: VLLMCriticalTTFTLatency
+        expr: histogram_quantile(0.99, sum by(le) (rate(vllm:time_to_first_token_seconds_bucket[5m]))) > 1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical Time to First Token latency (P99 > 1s)"
+          description: "vLLM TTFT P99 latency is {{ $value | humanizeDuration }} which exceeds the 1s critical threshold."
+          runbook_url: "https://github.com/vllm-project/vllm/blob/main/examples/online_serving/observability/runbooks/high-latency.md"
+
+      - alert: VLLMHighITLLatency
+        expr: histogram_quantile(0.99, sum by(le) (rate(vllm:inter_token_latency_seconds_bucket[5m]))) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High Inter-Token Latency (P99 > 100ms)"
+          description: "vLLM ITL P99 latency is {{ $value | humanizeDuration }} which exceeds the 100ms threshold."
+          runbook_url: "https://github.com/vllm-project/vllm/blob/main/examples/online_serving/observability/runbooks/high-latency.md"
+
+  - name: vllm_resources
+    rules:
+      - alert: VLLMHighKVCacheUsage
+        expr: avg(vllm:kv_cache_usage_perc) > 0.95
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "KV cache usage above 95%"
+          description: "vLLM KV cache usage is at {{ $value | humanizePercentage }} which may lead to preemptions."
+          runbook_url: "https://github.com/vllm-project/vllm/blob/main/examples/online_serving/observability/runbooks/memory-pressure.md"
+
+      - alert: VLLMCriticalKVCacheUsage
+        expr: avg(vllm:kv_cache_usage_perc) > 0.98
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "KV cache usage critically high (> 98%)"
+          description: "vLLM KV cache usage is at {{ $value | humanizePercentage }}. Immediate action required to prevent service degradation."
+          runbook_url: "https://github.com/vllm-project/vllm/blob/main/examples/online_serving/observability/runbooks/memory-pressure.md"
+
+      - alert: VLLMHighPreemptionRate
+        expr: sum(rate(vllm:num_preemptions[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High preemption rate (> 1/min)"
+          description: "vLLM is experiencing {{ $value | humanize }} preemptions per minute, indicating memory pressure."
+          runbook_url: "https://github.com/vllm-project/vllm/blob/main/examples/online_serving/observability/runbooks/memory-pressure.md"
+
+  - name: vllm_queue
+    rules:
+      - alert: VLLMHighQueueDepth
+        expr: sum(vllm:num_requests_waiting) > 100
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Request queue depth > 100"
+          description: "vLLM has {{ $value }} requests waiting in queue. Consider scaling horizontally."
+          runbook_url: "https://github.com/vllm-project/vllm/blob/main/examples/online_serving/observability/runbooks/high-queue-depth.md"
+
+      - alert: VLLMCriticalQueueDepth
+        expr: sum(vllm:num_requests_waiting) > 500
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Request queue depth critically high (> 500)"
+          description: "vLLM has {{ $value }} requests waiting in queue. Immediate scaling required."
+          runbook_url: "https://github.com/vllm-project/vllm/blob/main/examples/online_serving/observability/runbooks/high-queue-depth.md"
+
+      - alert: VLLMNoRequestsProcessing
+        expr: sum(vllm:num_requests_running) == 0 and sum(vllm:num_requests_waiting) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Requests waiting but none processing"
+          description: "vLLM has {{ $value }} requests waiting but no requests are being processed. Engine may be stuck."
+          runbook_url: "https://github.com/vllm-project/vllm/blob/main/examples/online_serving/observability/runbooks/engine-stuck.md"
+
+  - name: vllm_throughput
+    rules:
+      - alert: VLLMZeroThroughput
+        expr: sum(rate(vllm:generation_tokens_total[5m])) == 0 and sum(vllm:num_requests_running) > 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Zero generation throughput with active requests"
+          description: "vLLM is not generating tokens despite having active requests. Engine may be stuck."
+          runbook_url: "https://github.com/vllm-project/vllm/blob/main/examples/online_serving/observability/runbooks/engine-stuck.md"
+
+      - alert: VLLMLowThroughput
+        expr: sum(rate(vllm:generation_tokens_total[5m])) < 10 and sum(vllm:num_requests_running) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low generation throughput"
+          description: "vLLM generation throughput is only {{ $value | humanize }} tokens/s with {{ printf \"%.0f\" (sum vllm:num_requests_running) }} active requests."
+          runbook_url: "https://github.com/vllm-project/vllm/blob/main/examples/online_serving/observability/runbooks/low-throughput.md"
+
+  - name: vllm_cache
+    rules:
+      - alert: VLLMLowPrefixCacheHitRate
+        expr: sum(rate(vllm:prefix_cache_hits[10m])) / sum(rate(vllm:prefix_cache_queries[10m])) < 0.3
+        for: 10m
+        labels:
+          severity: info
+        annotations:
+          summary: "Low prefix cache hit rate (< 30%)"
+          description: "Prefix cache hit rate is {{ $value | humanizePercentage }}. Consider reviewing request patterns for better cache utilization."

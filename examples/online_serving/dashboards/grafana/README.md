@@ -11,10 +11,23 @@ vLLM performance and metrics.
 
 ## Dashboard Descriptions
 
+- **vllm_overview.json**: Main overview dashboard with key metrics at a glance -
+  throughput, latency, queue depth, and memory utilization.
+- **resource_utilization.json**: Detailed resource metrics including KV cache usage,
+  prefix cache hit rates, and preemption tracking.
 - **performance_statistics.json**: Tracks performance metrics including latency and
   throughput for your vLLM service.
 - **query_statistics.json**: Tracks query performance, request volume, and key
   performance indicators for your vLLM service.
+
+## Quick Setup with Observability Stack
+
+For a complete monitoring setup with pre-configured Prometheus and Grafana, see the
+[observability stack](../observability/README.md) which includes:
+
+- Docker Compose setup
+- Pre-configured alerting rules
+- Operational runbooks
 
 ## Deployment Options
 
